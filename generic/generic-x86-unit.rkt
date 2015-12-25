@@ -1,6 +1,7 @@
 #lang racket/unit
 
 (require
+  ffi/unsafe
   "generic-asm-sig.rkt"
   (prefix-in x86: "../x86.rkt"))
 
@@ -229,7 +230,11 @@
   (for-each x86:push callee-save-regs))
 
 (define (call u)
-  (x86:call u)
+  (cond
+    [(cpointer? u)
+     (x86:mov x86:rax u)
+     (x86:call x86:rax)]
+    [else (x86:call u)])
   (for-each x86:pop (reverse caller-save-regs)))
 
 (define (finish u)

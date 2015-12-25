@@ -1,6 +1,7 @@
 #lang racket
 
 (require
+  ffi/unsafe
   "../assemble.rkt"
   "../types.rkt"
   "reference.rkt"
@@ -130,6 +131,8 @@
               (eqv? address-size (or (reference-width r/m) address-size)))
     (error "address size mismatch"))
   (unless (or (not (exact-integer? immediate))
+              (and (cpointer? immediate)
+                   (<= 64 immediate-size))
               (and immediate-size
                    (< (integer-length immediate) immediate-size)))
     (error "immediate too large for size" immediate-size))
@@ -173,9 +176,10 @@
                                               #t
                                               #f)))
        (when immediate
-         (write-bytes (integer->integer-bytes (if (label? immediate)
-                                                  0
-                                                  immediate)
+         (write-bytes (integer->integer-bytes (cond
+                                                [(label? immediate) 0]
+                                                [(cpointer? immediate) (cast immediate _pointer _uint64)]
+                                                [else immediate])
                                               (/ immediate-size 8)
                                               #t
                                               #f))))))

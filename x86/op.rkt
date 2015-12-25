@@ -169,15 +169,13 @@
                        #:default-operand-size 64)]
     [else (error 'jmp "illegal argument: ~a" v)]))
 
-#|
 (module+ test
   (check-equal? (assemble
-                 (label 'foo)
+                 #:label foo
                  (nop)
-                 (jmp 'foo))
+                 (jmp foo))
                 #;(bytes #x90 #xEB #xFD)
                 (bytes #x90 #xE9 #xFA #xFF #xFF #xFF)))
-|#
 
 (define (mov dest src)
   (cond
