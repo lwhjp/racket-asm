@@ -2,10 +2,12 @@
 
 (require
   ffi/unsafe
-  "assemble.rkt")
+  "assemble.rkt"
+  "object.rkt")
 
 (provide
  bytes->proc
+ object->proc
  define/asm)
 
 (define alloc/exec
@@ -19,12 +21,16 @@
     (bytes-copy! code 0 bs)
     (function-ptr code type)))
 
+(define (object->proc obj type)
+  (unless (zero? (vector-length (ao:object-references obj)))
+    (error 'object->proc "object has unresolved references"))
+  (bytes->proc (ao:object-text obj) type))
+
 (define-syntax-rule
   (define/asm (id fun-spec ...)
     body ...)
   (define id
-    (bytes->proc
-     (object-code
-      (assemble
-       body ...))
+    (object->proc
+     (assemble
+      body ...)
      (_fun fun-spec ...))))

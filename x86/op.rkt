@@ -1,7 +1,7 @@
 #lang racket
 
 (require
-  "../types.rkt"
+  "../object.rkt"
   "instruction.rkt"
   "reference.rkt"
   "register.rkt")
@@ -12,7 +12,20 @@
 (module+ test
   (require
     rackunit
-    "../assemble.rkt"))
+    "../assemble.rkt")
+  (define-check (check-generated-asm name actual expected)
+    (let ([gen (ao:object-text actual)])
+      (with-check-info*
+       (list
+        (make-check-actual gen)
+        (make-check-expected expected))
+       (λ ()
+         (unless (equal? gen expected)
+           (fail-check))))))
+  (define-syntax-rule (check-asm actual expected)
+    (check-generated-asm 'check-asm actual expected))
+  (define-syntax-rule (check-instruction ins expected)
+    (check-generated-asm 'check-instruction (assemble ins) expected)))
 
 (define-values (adc add sbb sub)
   (let ([make-op
@@ -64,7 +77,7 @@
 
 (define (call v)
   (cond
-    [(label? v)
+    [(symbol? v)
      ; TODO: 8/16 bit offsets
      (make-instruction #xE8
                        #:immediate v)]
@@ -158,7 +171,7 @@
 
 (define (jmp v)
   (cond
-    [(label? v)
+    [(symbol? v)
      ; TODO: 8/16 bit offsets
      (make-instruction #xE9
                        #:immediate v)]
@@ -170,12 +183,13 @@
     [else (error 'jmp "illegal argument: ~a" v)]))
 
 (module+ test
-  (check-equal? (assemble
-                 #:label foo
-                 (nop)
-                 (jmp foo))
-                #;(bytes #x90 #xEB #xFD)
-                (bytes #x90 #xE9 #xFA #xFF #xFF #xFF)))
+  (check-asm
+   (assemble
+    #:label foo
+    (nop)
+    (jmp 'foo))
+   #;(bytes #x90 #xEB #xFD)
+   (bytes #x90 #xE9 #xFA #xFF #xFF #xFF)))
 
 (define (mov dest src)
   (cond
@@ -212,35 +226,35 @@
                     #:r/m v))
 
 (module+ test
-  (check-equal? (assemble (mov ah ch)) (bytes #x88 #xEC))
-  (check-equal? (assemble (mov bx cx)) (bytes #x66 #x89 #xCB))
-  (check-equal? (assemble (mov esi edi)) (bytes #x89 #xFE))
-  (check-equal? (assemble (mov r8 r9)) (bytes #x4D #x89 #xC8))
-  (check-equal? (assemble (mov eax 42)) (bytes #xB8 #x2A #x00 #x00 #x00))
+  (check-instruction (mov ah ch) (bytes #x88 #xEC))
+  (check-instruction (mov bx cx) (bytes #x66 #x89 #xCB))
+  (check-instruction (mov esi edi) (bytes #x89 #xFE))
+  (check-instruction (mov r8 r9) (bytes #x4D #x89 #xC8))
+  (check-instruction (mov eax 42) (bytes #xB8 #x2A #x00 #x00 #x00))
 
-  (check-equal? (assemble (mov rax (ptr rbx)))
-                (bytes #x48 #x8B #x03))
-  (check-equal? (assemble (mov rax (ptr ebx)))
-                (bytes #x67 #x48 #x8B #x03))
-  (check-equal? (assemble (mov eax (ptr rbx)))
-                (bytes #x8B #x03))
-  (check-equal? (assemble (mov eax (ptr ebx)))
-                (bytes #x67 #x8B #x03))
-  (check-equal? (assemble (mov eax (ptr+ ebx ecx)))
-                (bytes #x67 #x8B #x04 #x0B))
-  (check-equal? (assemble (mov eax (ptr+ (ptr* 2 ebx) ecx)))
-                (bytes #x67 #x8B #x04 #x59))
-  (check-equal? (assemble (mov eax (ptr+ (ptr* 2 ebx) ecx 4)))
-                #;(bytes #x67 #x8B #x44 #x59 #x04)
-                (bytes #x67 #x8B #x84 #x59 #x04 #x00 #x00 #x00))
-  (check-equal? (assemble (mov eax (ptr+ ecx 4)))
-                #;(bytes #x67 #x8B #x41 #x04)
-                (bytes #x67 #x8B #x81 #x04 #x00 #x00 #x00))
-  (check-equal? (assemble (mov eax (ptr+ (ptr* 2 ebx) 4)))
-                #;(bytes #x67 #x8B #x44 #x1B #x04)
-                (bytes #x67 #x8B #x04 #x5D #x04 #x00 #x00 #x00))
-  (check-equal? (assemble (mov eax (ptr 4)))
-                (bytes #x8B #x04 #x25 #x04 #x00 #x00 #x00)))
+  (check-instruction (mov rax (ptr rbx))
+                     (bytes #x48 #x8B #x03))
+  (check-instruction (mov rax (ptr ebx))
+                     (bytes #x67 #x48 #x8B #x03))
+  (check-instruction (mov eax (ptr rbx))
+                     (bytes #x8B #x03))
+  (check-instruction (mov eax (ptr ebx))
+                     (bytes #x67 #x8B #x03))
+  (check-instruction (mov eax (ptr+ ebx ecx))
+                     (bytes #x67 #x8B #x04 #x0B))
+  (check-instruction (mov eax (ptr+ (ptr* 2 ebx) ecx))
+                     (bytes #x67 #x8B #x04 #x59))
+  (check-instruction (mov eax (ptr+ (ptr* 2 ebx) ecx 4))
+                     #;(bytes #x67 #x8B #x44 #x59 #x04)
+                     (bytes #x67 #x8B #x84 #x59 #x04 #x00 #x00 #x00))
+  (check-instruction (mov eax (ptr+ ecx 4))
+                     #;(bytes #x67 #x8B #x41 #x04)
+                     (bytes #x67 #x8B #x81 #x04 #x00 #x00 #x00))
+  (check-instruction (mov eax (ptr+ (ptr* 2 ebx) 4))
+                     #;(bytes #x67 #x8B #x44 #x1B #x04)
+                     (bytes #x67 #x8B #x04 #x5D #x04 #x00 #x00 #x00))
+  (check-instruction (mov eax (ptr 4))
+                     (bytes #x8B #x04 #x25 #x04 #x00 #x00 #x00)))
 
 (define (nop)
   (make-instruction #x90))

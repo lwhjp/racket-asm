@@ -6,7 +6,8 @@
 
 (require asm
          asm/generic
-         ffi/unsafe)
+         ffi/unsafe
+         "../ffi.rkt")
 
 (provide compile-rpn)
 
@@ -51,7 +52,7 @@
           (loop (add1 i))]))
      (epilog)
      (ret r0)))
-  (bytes->proc fn (_fun _int -> _int)))
+  (object->proc fn (_fun _int -> _int)))
 
 (define c->f
   (compile-rpn "32x9*5/+"))

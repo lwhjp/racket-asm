@@ -1,41 +1,33 @@
 #lang racket
 
 (require
-  "types.rkt")
+  data/gvector
+  "link.rkt"
+  "object.rkt")
 
 (provide
- (struct-out object)
  assemble
- fix-label!
- make-forward-label
- make-label
  plain-assemble
+ add-reference!
+ add-symbol!
  write-instruction)
 
-(struct object (code labels))
-
 (struct assembler
-  (instructions position emit)
-  #:mutable)
+  (out
+   symbols
+   references))
+
+(define (assembler-position asm)
+  (file-position (assembler-out asm)))
 
 (define current-assembler
   (make-parameter #f))
 
 (define (make-assembler)
   (assembler
-   '()
-   0
-   (λ (asm)
-     (call-with-output-bytes
-      (λ (out)
-        (for/fold ([p 0])
-                  ([ins (in-list (reverse (assembler-instructions asm)))])
-          (let ([patch! (instruction-patch! ins)])
-            (when patch!
-              (patch! p)))
-          (define bs (instruction-bytes ins))
-          (write-bytes bs out)
-          (+ p (bytes-length bs))))))))
+   (open-output-bytes)
+   (make-gvector)
+   (make-gvector)))
 
 (define-syntax-rule (assemble body ...)
   (collect-labels (body ...)))
@@ -46,11 +38,14 @@
      (collect-labels (body ...) ())]
     [(_ () (done ...))
      (plain-assemble done ...)]
+    [(_ (#:global id body ...) (done ...))
+     (collect-labels (body ...)
+                     (done ...
+                      (add-symbol! 'id #:binding 'global)))]
     [(_ (#:label id body ...) (done ...))
      (collect-labels (body ...)
-                     ((define id (make-forward-label))
-                      done ...
-                      (fix-label! id)))]
+                     (done ...
+                      (add-symbol! 'id #:binding 'local)))]
     [(_ (body rest ...) (done ...))
      (collect-labels (rest ...) (done ... body))]))
 
@@ -60,27 +55,36 @@
      #'(let ([asm (make-assembler)])
          (parameterize ([current-assembler asm])
            body ...)
-         ((assembler-emit asm) asm))]))
+         (link-object/local/relative
+          (ao:object
+           (gvector->vector (assembler-symbols asm))
+           (gvector->vector (assembler-references asm))
+           (get-output-bytes (assembler-out asm)))))]))
 
-(define (fix-label! lbl)
-  (when (label-address lbl)
-    (error "label already fixed"))
-  (set-label-address! lbl (assembler-position (current-assembler))))
+(define (add-reference! symbol size offset addend type)
+  (gvector-add!
+   (assembler-references (current-assembler))
+   (ao:reference
+    symbol
+    (+ (assembler-position (current-assembler)) offset)
+    size
+    addend
+    type)))
 
-(define (make-forward-label)
-  (label #f))
-
-(define (make-label)
-  (label (assembler-position (current-assembler))))
+(define (add-symbol! name
+                     [value (assembler-position (current-assembler))]
+                     #:binding [binding 'global])
+  (gvector-add!
+   (assembler-symbols (current-assembler))
+   (ao:symbol
+    name
+    value
+    binding)))
 
 (define (write-instruction ins)
   (let ([asm (current-assembler)])
     (unless asm
       (error "invalid outside of (assemble ...)"))
-    (set-assembler-instructions!
-     asm
-     (cons ins (assembler-instructions asm)))
-    (set-assembler-position!
-     asm
-     (+ (bytes-length (instruction-bytes ins))
-        (assembler-position asm)))))
+    (write-bytes
+     ins
+     (assembler-out asm))))

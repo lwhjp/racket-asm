@@ -6,11 +6,13 @@
 
 (require asm
          asm/generic
-         ffi/unsafe)
+         ffi/unsafe
+         "../ffi.rkt"
+         "../object.rkt")
 
 (provide incr)
 
-(define incr-code
+(define incr-obj
   (assemble
    (prolog)
    (define in (arg 0))
@@ -20,8 +22,8 @@
    (ret r0)))
 
 (define incr
-  (bytes->proc incr-code (_fun _int -> _int)))
+  (object->proc incr-obj (_fun _int -> _int)))
 
 (module+ main
   (require asm/x86/ndisasm)
-  (display (ndisasm incr-code)))
+  (display (ndisasm (ao:object-text incr-obj))))

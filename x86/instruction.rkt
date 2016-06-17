@@ -3,7 +3,6 @@
 (require
   ffi/unsafe
   "../assemble.rkt"
-  "../types.rkt"
   "reference.rkt"
   "register.rkt")
 
@@ -177,25 +176,18 @@
                                               #f)))
        (when immediate
          (write-bytes (integer->integer-bytes (cond
-                                                [(label? immediate) 0]
+                                                [(symbol? immediate) 0]
                                                 [(cpointer? immediate) (cast immediate _pointer _uint64)]
                                                 [else immediate])
                                               (/ immediate-size 8)
                                               #t
                                               #f))))))
-  (write-instruction
-   (instruction
-    bs
-    (and (label? immediate)
-         (λ (ip)
-           (unless (label-address immediate)
-             (error "label not fixed"))
-           (define ofst
-             (- (label-address immediate)
-                (+ ip (bytes-length bs))))
-           (bytes-copy! bs
-                        (- (bytes-length bs) (/ immediate-size 8))
-                        (integer->integer-bytes ofst
-                                                (/ immediate-size 8)
-                                                #t
-                                                #f)))))))
+  (write-instruction bs)
+  (when (symbol? immediate)
+    (let ([size (/ immediate-size 8)])
+      (add-reference!
+       immediate
+       size
+       (- size)
+       (- size)
+       'relative))))
