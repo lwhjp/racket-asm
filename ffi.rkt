@@ -6,6 +6,7 @@
   "object.rkt")
 
 (provide
+ alloc/exec
  bytes->proc
  object->proc
  define/asm)

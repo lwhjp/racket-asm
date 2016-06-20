@@ -10,10 +10,12 @@
          "../ffi.rkt"
          "../object.rkt")
 
-(provide rfib)
+(provide rfib
+         rfib-obj)
 
 (define rfib-obj
   (assemble
+   #:global rfib
    #:label top
    (prolog)
    (getarg v0 (arg 0))

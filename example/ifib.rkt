@@ -10,10 +10,12 @@
          "../ffi.rkt"
          "../object.rkt")
 
-(provide ifib)
+(provide ifib
+         ifib-obj)
 
 (define ifib-obj
   (assemble
+   #:global ifib
    (prolog)
    (define in (arg 0))
    (getarg r2 in)
