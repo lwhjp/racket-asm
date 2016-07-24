@@ -2,7 +2,8 @@
 
 (require
   "../object.rkt"
-  "instruction.rkt"
+  "private/define-instruction.rkt"
+  "private/instruction.rkt"
   "reference.rkt"
   "register.rkt")
 
@@ -75,74 +76,81 @@
             (make-op #f #t)
             (make-op #f #f))))
 
-(define (call v)
-  (cond
-    [(symbol? v)
-     ; TODO: 8/16 bit offsets
-     (make-instruction #xE8
-                       #:immediate v)]
-    [(reg/mem? v)
-     (make-instruction #xFF
-                       #:reg 2
-                       #:r/m v
-                       #:default-operand-size 64)]
-    [else (error 'call "illegal argument: ~a" v)]))
+(define-instruction call
+  [(rel16off) (op "E8 iw")]
+  [(rel32off) (op "E8 id")]
+  [(reg/mem16) (op "FF /2")]
+  #;[(reg/mem32) (op "FF /2")]
+  [(reg/mem64) (op "FF /2" #:default-operand-size 64)])
 
-(define (cmp v w)
-  (cond
-    [(and (reg/mem? v) (not (reg/mem? w)))
-     (define 8bit? (eqv? 8 (r/m-width v)))
-     (make-instruction (if 8bit? #x80 #x81)
-                       #:reg 7
-                       #:r/m v
-                       #:immediate w
-                       #:default-operand-size (if 8bit? 8 32))]
-    [(and (reg/mem? v) (register? w))
-     (define 8bit? (eqv? 8 (register-width w)))
-     (make-instruction (if 8bit? #x38 #x39)
-                       #:reg w
-                       #:r/m v
-                       #:default-operand-size (if 8bit? 8 32))]
-    [(and (register? v) (reg/mem? w))
-     (define 8bit? (eqv? 8 (register-width v)))
-     (make-instruction (if 8bit? #x3A #x3B)
-                       #:reg v
-                       #:r/m w
-                       #:default-operand-size (if 8bit? 8 32))]
-    [else (error "illegal operands")]))
+(define-instruction cmp
+  #;[(AL imm8) (op "3C ib")]
+  #;[(AX imm16) (op "3D iw")]
+  #;[(EAX imm32) (op "3D id")]
+  #;[(RAX imm32) (op "3D id")]
+  [(reg/mem8 imm8) (op "80 /7 ib")]
+  [(reg/mem16 imm8) (op "83 /7 ib")]
+  [(reg/mem32 imm8) (op "83 /7 ib")]
+  [(reg/mem64 imm8) (op "83 /7 ib")]
+  [(reg/mem16 imm16) (op "81 /7 iw")]
+  [(reg/mem32 imm32) (op "81 /7 id")]
+  [(reg/mem64 imm32) (op "81 /7 id")]
+  [(reg/mem8 reg8) (op "38 /r")]
+  [(reg/mem16 reg16) (op "39 /r")]
+  [(reg/mem32 reg32) (op "39 /r")]
+  [(reg/mem64 reg64) (op "49 /r")]
+  [(reg8 reg/mem8) (op "3A /r")]
+  [(reg16 reg/mem16) (op "3B /r")]
+  [(reg32 reg/mem32) (op "3B /r")]
+  [(reg64 reg/mem64) (op "3B /r")])
 
-(define (dec v)
-  (cond
-    [(reg/mem? v)
-     (define 8bit? (eqv? 8 (r/m-width v)))
-     (make-instruction (if 8bit? #xFE #xFF)
-                       #:reg 1
-                       #:r/m v
-                       #:default-operand-size (if 8bit? 8 32))]
-    [(register? v)
-     (make-instruction (+ #x48 (bitwise-and #x7 (register-code v)))
-                       #:operand-size (register-width v))]
-    [else (error "illegal argument")]))
+(module+ test
+  #;(check-instruction (cmp al 1) (bytes #x3C #x01))
+  #;(check-instruction (cmp eax 1000) (bytes #x3D #xE8 #x03 #x00 #x00))
+  (check-instruction (cmp bh 1) (bytes #x80 #xFF #x01))
+  (check-instruction (cmp ebx 1000) (bytes #x81 #xFB #xE8 #x03 #x00 #x00))
+  (check-instruction (cmp ebx 1) (bytes #x83 #xFB #x01))
+  (check-instruction (cmp (ptr ebx) cl) (bytes #x67 #x38 #x0B))
+  (check-instruction (cmp (ptr rbx) cl) (bytes #x38 #x0B))
+  (check-instruction (cmp (ptr rbx) ecx) (bytes #x39 #x0B))
+  (check-instruction (cmp bl (ptr rcx)) (bytes #x3A #x19))
+  (check-instruction (cmp ebx (ptr rcx)) (bytes #x3B #x19)))
 
-(define (div v)
-  (define 8bit? (eqv? 8 (r/m-width v)))
-  (make-instruction (if 8bit? #xF6 #xF7)
-                    #:reg 6
-                    #:r/m v
-                    #:default-operand-size (if 8bit? 8 32)))
+(define-instruction dec
+  [(reg/mem8) (op "FE /1")]
+  [(reg/mem16) (op "FF /1")]
+  [(reg/mem32) (op "FF /1")]
+  [(reg/mem64) (op "FF /1")]
+  [(reg16) (op "48 +rw")]
+  [(reg32) (op "48 +rd")])
 
-(define (inc v)
-  (cond
-    [(reg/mem? v)
-     (define 8bit? (eqv? 8 (r/m-width v)))
-     (make-instruction (if 8bit? #xFE #xFF)
-                       #:reg 0
-                       #:r/m v
-                       #:default-operand-size (if 8bit? 8 32))]
-    [(register? v)
-     (make-instruction (+ #x40 (bitwise-and #x7 (register-code v)))
-                       #:operand-size (register-width v))]
-    [else (error "illegal argument")]))
+(module+ test
+  (check-instruction (dec al) (bytes #xFE #xC8))
+  (check-instruction (dec ah) (bytes #xFE #xCC))
+  (check-instruction (dec ax) (bytes #x66 #xFF #xC8))
+  (check-instruction (dec rax) (bytes #x48 #xFF #xC8))
+  (check-instruction (dec r10b) (bytes #x41 #xFE #xCA))
+  (check-instruction (dec r10w) (bytes #x66 #x41 #xFF #xCA))
+  (check-instruction (dec r10d) (bytes #x41 #xFF #xCA))
+  (check-instruction (dec r10) (bytes #x49 #xFF #xCA)))
+
+(define-instruction div
+  [(reg/mem8) (op "F6 /6")]
+  [(reg/mem16) (op "F7 /6")]
+  [(reg/mem32) (op "F7 /6")]
+  [(reg/mem64) (op "F7 /6")])
+
+(module+ test
+  (check-instruction (div bh) (bytes #xF6 #xF7))
+  (check-instruction (div ebx) (bytes #xF7 #xF3)))
+
+(define-instruction inc
+  [(reg/mem8) (op "FE /0")]
+  [(reg/mem16) (op "FF /0")]
+  [(reg/mem32) (op "FF /0")]
+  [(reg/mem64) (op "FF /0")]
+  [(reg16) (op "40 +rw")]
+  [(reg32) (op "40 +rd")])
 
 (define-values (jo jno jb jnb jz jnz jbe jnbe js jns jp jnp jl jnl jle jnle)
   (apply
@@ -169,18 +177,13 @@
 (define jng jle)
 (define jg jnle)
 
-(define (jmp v)
-  (cond
-    [(symbol? v)
-     ; TODO: 8/16 bit offsets
-     (make-instruction #xE9
-                       #:immediate v)]
-    [(reg/mem? v)
-     (make-instruction #xFF
-                       #:reg 4
-                       #:r/m v
-                       #:default-operand-size 64)]
-    [else (error 'jmp "illegal argument: ~a" v)]))
+(define-instruction jmp
+  [(rel8off) (op "EB cb")]
+  [(rel16off) (op "E9 cw")]
+  [(rel32off) (op "E9 cd")]
+  [(reg/mem16) (op "FF /4")]
+  #;[(reg/mem32) (op "FF /4")]
+  [(reg/mem64) (op "FF /4")])
 
 (module+ test
   (check-asm
@@ -191,39 +194,25 @@
    #;(bytes #x90 #xEB #xFD)
    (bytes #x90 #xE9 #xFA #xFF #xFF #xFF)))
 
-(define (mov dest src)
-  (cond
-    [(and (reg/mem? dest) (register? src))
-     (define 8bit? (eqv? 8 (register-width src)))
-     (make-instruction (if 8bit? #x88 #x89)
-                       #:reg src
-                       #:r/m dest
-                       #:default-operand-size (if 8bit? 8 32))]
-    [(and (register? dest) (reg/mem? src))
-     (define 8bit? (eqv? 8 (register-width dest)))
-     (make-instruction (if 8bit? #x8A #x8B)
-                       #:reg dest
-                       #:r/m src
-                       #:default-operand-size (if 8bit? 8 32))]
-    ; TODO: 8C, 8E
-    ; Not implemented: A0, A1, A2, A3
-    [(and (register? dest) (not (reg/mem? src)))
-     (make-instruction (+ (if (eqv? 8 (register-width dest)) #xB0 #xB8)
-                          (bitwise-and #x7 (register-code dest)))
-                       #:reg dest
-                       #:immediate src
-                       #:immediate-size (register-width dest))]
-    [(and (reg/mem? dest) (not (reg/mem? src)))
-     (make-instruction (if (eqv? 8 (r/m-width dest)) #xC6 #xC7)
-                       #:reg 0
-                       #:r/m dest
-                       #:immediate src)]
-    [else (error "illegal operands")]))
-
-(define (mul v)
-  (make-instruction (if (eqv? 8 (r/m-width v)) #xF6 #xF7)
-                    #:reg 4
-                    #:r/m v))
+(define-instruction mov
+  [(reg/mem8 reg8) (op "88 /r")]
+  [(reg/mem16 reg16) (op "89 /r")]
+  [(reg/mem32 reg32) (op "89 /r")]
+  [(reg/mem64 reg64) (op "89 /r")]
+  [(reg8 reg/mem8) (op "8A /r")]
+  [(reg16 reg/mem16) (op "8B /r")]
+  [(reg32 reg/mem32) (op "8B /r")]
+  [(reg64 reg/mem64) (op "8B /r")]
+  ; TODO: 8C, 8E
+  ; Not implemented: A0, A1, A2, A3
+  [(reg8 imm8) (op "B0 +rb ib")]
+  [(reg16 imm16) (op "B8 +rw iw")]
+  [(reg32 imm32) (op "B8 +rd id")]
+  [(reg64 imm64) (op "B8 +rq iq")]
+  [(reg/mem8 imm8) (op "C6 /0 ib")]
+  [(reg/mem16 imm16) (op "C7 /0 iw")]
+  [(reg/mem32 imm32) (op "C7 /0 id")]
+  [(reg/mem64 imm32) (op "C7 /0 id")])
 
 (module+ test
   (check-instruction (mov ah ch) (bytes #x88 #xEC))
@@ -256,35 +245,62 @@
   (check-instruction (mov eax (ptr 4))
                      (bytes #x8B #x04 #x25 #x04 #x00 #x00 #x00)))
 
-(define (nop)
-  (make-instruction #x90))
+(define-instruction mul
+  [(reg/mem8) (op "F6 /4")]
+  [(reg/mem16) (op "F7 /4")]
+  [(reg/mem32) (op "F7 /4")]
+  [(reg/mem64) (op "F7 /4")])
 
-(define (pop v)
-  (cond
-    [(reg/mem? v)
-     (make-instruction #x8F
-                       #:reg 0
-                       #:r/m v
-                       #:default-operand-size 64)]
-    [else (error 'pop "illegal operand")]))
+(define-instruction nop
+  [() (op "90")]
+  #;[(reg/mem16) (op "0F 1F /0")]
+  #;[(reg/mem32) (op "0F 1F /0")]
+  #;[(reg/mem64) (op "0F 1F /0")])
 
-(define (push v)
-  (cond
-    ;; TODO: PUSH CS, SS, DS, ES, FS, GS
-    [(reg/mem? v)
-     (make-instruction #xFF
-                       #:reg 6
-                       #:r/m v
-                       #:default-operand-size 64)]
-    [(not (reg/mem? v))
-     (make-instruction #x68
-                       #:immediate v
-                       #:default-operand-size 64
-                       #:immediate-size 32)]
-    [else (error 'push "illegal operand")]))
+(module+ test
+  (check-instruction (nop) (bytes #x90)))
 
-(define (ret)
-  (make-instruction #xC3))
+(define-instruction pop
+  [(reg16) (op "58 +rw")]
+  #;[(reg32) (op "58 +rd")] ; not available in 64-bit mode
+  [(reg64) (op "58 +rq" #:default-operand-size 64)]
+  ;; TODO: specify memory size
+  #;[(reg/mem16) (op "8F /0")]
+  #;[(reg/mem32) (op "8F /0")] ; not available in 64-bit mode
+  #;[(reg/mem64) (op "8F /0" #:default-operand-size 64)]
+  ;; TODO: POP DS, ES, SS, FS, GS
+  )
+
+(module+ test
+  #;(check-instruction (pop (ptr rax)) (bytes #x8F #x00))
+  (check-instruction (pop ax) (bytes #x66 #x58))
+  (check-instruction (pop rax) (bytes #x58)))
+
+(define-instruction push
+  [(reg16) (op "50 +rw")]
+  #;[(reg32) (op "50 +rw")] ; not available in 64-bit mode
+  [(reg64) (op "50 +rq" #:default-operand-size 64)]
+  ;; TODO: specify memory size
+  #;[(reg/mem16) (op "FF /6")]
+  #;[(reg/mem32) (op "FF /6")] ; not available in 64-bit mode
+  #;[(reg/mem64) (op "FF /6" #:default-operand-size 64)]
+  [(imm8) (op "6A ib")]
+  [(imm16) (op "68 iw")]
+  #;[(imm32) (op "68 id")]
+  [(imm32) (op "68 id")] ; spec says imm64 but that is wrong?
+  ;; TODO: PUSH CS, SS, DS, ES, FS, GS
+  )
+
+(module+ test
+  (check-instruction (push #x12345678) (bytes #x68 #x78 #x56 #x34 #x12)))
+
+(define-instruction ret
+  [() (op "C3")]
+  [(imm16) (op "C2 iw")])
+
+(module+ test
+  (check-instruction (ret) (bytes #xC3))
+  (check-instruction (ret #x1234) (bytes #xC2 #x34 #x12)))
 
 (define-values (seto setno setb setnb setz setnz setbe setnbe sets setns setp setnp setl setnl setle setnle)
   (apply

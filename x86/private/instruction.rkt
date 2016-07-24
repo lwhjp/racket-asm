@@ -2,9 +2,9 @@
 
 (require
   ffi/unsafe
-  "../assemble.rkt"
-  "reference.rkt"
-  "register.rkt")
+  "../../assemble.rkt"
+  "../reference.rkt"
+  "../register.rkt")
 
 (provide
  reg/mem?
@@ -23,7 +23,7 @@
     [(reference-index v) => register-width]
     [else #f]))
 
-(define (make-modrm+sib+rex reg r/m width)
+(define (make-modrm+sib+rex reg r/m override-width?)
   (define (register->code r)
     (if (register? r)
         (bitwise-ior (register-code r)
@@ -73,7 +73,7 @@
               (bitwise-and #x7 (register-code (reference-base r/m)))
               #b101))))
   (define rex
-    (let ([w (eqv? 64 width)]
+    (let ([w override-width?]
           [r (and modrm (bitwise-bit-set? reg-code 3))]
           [x (and (reference? r/m)
                   (reference-index r/m)
@@ -100,7 +100,6 @@
                           #:reg [reg #f]
                           #:r/m [r/m #f]
                           #:immediate [immediate #f]
-                          #:default-operand-size [default-operand-size 32]
                           #:address-size [address-size
                                           (or (and (reference? r/m)
                                                    (reference-width r/m))
@@ -110,12 +109,15 @@
                                                    (register-width reg))
                                               (and (reg/mem? r/m)
                                                    (r/m-width r/m))
-                                              default-operand-size)]
-                          #:offset-size [offset-size (min 32 operand-size)]
-                          #:immediate-size [immediate-size (min 32 operand-size)])
+                                              #f)]
+                          #:offset-size [offset-size (min 32 (or operand-size 32))]
+                          #:immediate-size [immediate-size (min 32 (or operand-size 32))]
+                          #:default-operand-size [default-operand-size (if (eqv? 8 operand-size) 8 32)])
   (unless (memv address-size '(32 64))
     (error "address size must be 32 or 64"))
-  (unless (memv operand-size '(8 16 32 64))
+  (unless (or (and (not reg)
+                   (not r/m))
+              (memv operand-size '(8 16 32 64)))
     (error "invalid operand size"))
   (unless (memv offset-size '(#f 8 16 32 64))
     (error "invalid offset size"))
@@ -143,6 +145,7 @@
     (error "total offset and immediate size must be <= 64"))
   (define override-operand-size?
     (cond
+      [(not operand-size) #f]
       [(eqv? default-operand-size operand-size) #f]
       [(eqv? 16 operand-size) #t]
       [(eqv? 64 operand-size) #f] ; Use REX instead
@@ -150,7 +153,7 @@
   (define override-address-size?
     (eqv? 32 address-size))
   (define-values (modrm sib rex)
-    (make-modrm+sib+rex reg r/m operand-size))
+    (make-modrm+sib+rex reg r/m (and (eqv? 64 operand-size) (not (eqv? 64 default-operand-size)))))
   ;; Write it all out
   (define bs
     (with-output-to-bytes
@@ -175,13 +178,17 @@
                                               #t
                                               #f)))
        (when immediate
-         (write-bytes (integer->integer-bytes (cond
-                                                [(symbol? immediate) 0]
-                                                [(cpointer? immediate) (cast immediate _pointer _uint64)]
-                                                [else immediate])
-                                              (/ immediate-size 8)
-                                              #t
-                                              #f))))))
+         (let ([v (cond
+                    [(symbol? immediate) 0]
+                    [(cpointer? immediate) (cast immediate _pointer _uint64)]
+                    [else immediate])])
+           (if (eqv? 8 immediate-size)
+               (write-byte v)
+               (write-bytes (integer->integer-bytes
+                             v
+                             (/ immediate-size 8)
+                             #t
+                             #f))))))))
   (write-instruction bs)
   (when (symbol? immediate)
     (let ([size (/ immediate-size 8)])
