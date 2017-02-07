@@ -1,6 +1,7 @@
 #lang racket
 
 (require
+  (for-syntax syntax/parse)
   data/gvector
   "link.rkt"
   "object.rkt")
@@ -29,25 +30,22 @@
    (make-gvector)
    (make-gvector)))
 
-(define-syntax-rule (assemble body ...)
-  (collect-labels (body ...)))
-
-(define-syntax collect-labels
-  (syntax-rules ()
-    [(_ (body ...))
-     (collect-labels (body ...) ())]
-    [(_ () (done ...))
-     (plain-assemble done ...)]
-    [(_ (#:global id body ...) (done ...))
-     (collect-labels (body ...)
-                     (done ...
-                      (add-symbol! 'id #:binding 'global)))]
-    [(_ (#:label id body ...) (done ...))
-     (collect-labels (body ...)
-                     (done ...
-                      (add-symbol! 'id #:binding 'local)))]
-    [(_ (body rest ...) (done ...))
-     (collect-labels (rest ...) (done ... body))]))
+(define-syntax (assemble stx)
+  (define-splicing-syntax-class instruction
+    #:attributes (label expr)
+    (pattern (~seq #:global ~! label:id)
+             #:attr expr #'(add-symbol! label #:binding 'global))
+    (pattern (~seq #:label ~! label:id)
+             #:attr expr #'(add-symbol! label #:binding 'local))
+    (pattern expr:expr
+             #:attr label #f))
+  (syntax-parse stx
+    [(_ body:instruction ...)
+     (with-syntax ([(label ...) (filter syntax? (attribute body.label))]
+                   [(expr ...) (filter syntax? (attribute body.expr))])
+       #'(plain-assemble
+          (define-values (label ...) (values 'label ...))
+          expr ...))]))
 
 (define-syntax (plain-assemble stx)
   (syntax-case stx ()
