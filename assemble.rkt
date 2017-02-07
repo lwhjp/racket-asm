@@ -11,6 +11,7 @@
  plain-assemble
  add-reference!
  add-symbol!
+ datum
  write-instruction)
 
 (struct assembler
@@ -33,6 +34,10 @@
 (define-syntax (assemble stx)
   (define-splicing-syntax-class instruction
     #:attributes (label expr)
+    (pattern (~seq #:datum ~! label:id value:expr)
+             #:attr expr #'(begin
+                             (add-symbol! label #:binding 'local)
+                             (datum value)))
     (pattern (~seq #:global ~! label:id)
              #:attr expr #'(add-symbol! label #:binding 'global))
     (pattern (~seq #:label ~! label:id)
@@ -78,6 +83,12 @@
     name
     value
     binding)))
+
+(define (datum v)
+  (write-instruction
+   (cond
+     [(bytes? v) v]
+     [else (error "invalid datum")])))
 
 (define (write-instruction ins)
   (let ([asm (current-assembler)])
