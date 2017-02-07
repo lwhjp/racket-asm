@@ -28,6 +28,8 @@
   (define-syntax-rule (check-instruction ins expected)
     (check-generated-asm 'check-instruction (assemble ins) expected)))
 
+;; General-Purpose Instructions
+
 (define-values (adc add sbb sub)
   (let ([make-op
          (λ (add? carry?)
@@ -151,6 +153,10 @@
   [(reg/mem64) (op "FF /0")]
   [(reg16) (op "40 +rw")]
   [(reg32) (op "40 +rd")])
+
+(define-instruction int
+  ;; TODO: INT 3
+  [(imm8) (op "CD ib")])
 
 (define-values (jo jno jb jnb jz jnz jbe jnbe js jns jp jnp jl jnl jle jnle)
   (apply
@@ -328,3 +334,8 @@
 (define setge setnl)
 (define setng setle)
 (define setg setnle)
+
+;; System Instructions
+
+(define (syscall)
+  (make-instruction (bytes #x0F #x05)))
