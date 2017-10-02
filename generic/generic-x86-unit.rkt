@@ -8,6 +8,12 @@
 (import)
 (export generic-asm^)
 
+(define current-x86-calling-convention
+  (make-parameter
+   (if (eq? 'windows (system-type 'os))
+       'microsoft
+       'sysv)))
+
 (define v0 x86:rbx)
 (define v1 x86:r13)
 (define v2 x86:r14)
@@ -24,27 +30,56 @@
 (define f5 #f)
 (define fp x86:rbp)
 
-(define callee-save-regs
-  (list x86:r12
-        x86:r13
-        x86:r14
-        x86:r15
-        x86:rbx
-        x86:rbp))
+(define (callee-save-regs [cc (current-x86-calling-convention)])
+  (case cc
+    [(sysv)
+     (list x86:r12
+           x86:r13
+           x86:r14
+           x86:r15
+           x86:rbx
+           x86:rbp)]
+    [(microsoft)
+     (list x86:r12
+           x86:r13
+           x86:r14
+           x86:r15
+           x86:rbx
+           x86:rbp
+           x86:rdi
+           x86:rsi
+           x86:rsp)]))
 
-(define caller-save-regs
-  (list ; Restoring RAX will obliterate the return value...
-        ;x86:rax
-        x86:r10
-        x86:r11))
+(define (caller-save-regs [cc (current-x86-calling-convention)])
+  (case cc
+    [(sysv)
+     (list ; Restoring RAX will obliterate the return value...
+           ;x86:rax
+           x86:r10
+           x86:r11)]
+    [(microsoft)
+     (list ;x86:rax
+           x86:rcx
+           x86:rdx
+           x86:r8
+           x86:r9
+           x86:r10
+           x86:r11)]))
 
-(define arg-regs
-  (list x86:rdi
-        x86:rsi
-        x86:rdx
-        x86:rcx
-        x86:r8
-        x86:r9))
+(define (arg-regs [cc (current-x86-calling-convention)])
+  (case cc
+    [(sysv)
+     (list x86:rdi
+           x86:rsi
+           x86:rdx
+           x86:rcx
+           x86:r8
+           x86:r9)]
+    [(microsoft)
+     (list x86:rcx
+           x86:rdx
+           x86:r8
+           x86:r9)]))
 
 ;;XXX
 (define TODO (λ a (error 'TODO)))
@@ -227,7 +262,7 @@
         (TODO))))))
 
 (define (prepare)
-  (for-each x86:push callee-save-regs))
+  (for-each x86:push (callee-save-regs)))
 
 (define (call u)
   (cond
@@ -235,7 +270,7 @@
      (x86:mov x86:rax u)
      (x86:call x86:rax)]
     [else (x86:call u)])
-  (for-each x86:pop (reverse caller-save-regs)))
+  (for-each x86:pop (reverse (caller-save-regs))))
 
 (define (finish u)
   ;; Hmm... ?
@@ -248,8 +283,9 @@
   (x86:mov u x86:rax))
 
 (define (arg n)
+  (define regs (arg-regs))
   (cond
-    [(< n 6) (list-ref arg-regs n)]
+    [(< n (length regs)) (list-ref regs n)]
     [else (error 'arg "invalid arg number")]))
 
 (define (getarg u v)
@@ -259,12 +295,12 @@
   (x86:mov u v))
 
 (define (prolog)
-  (for-each x86:push callee-save-regs)
+  (for-each x86:push (callee-save-regs))
   (x86:mov x86:rbp x86:rsp))
 
 (define (epilog)
   (x86:mov x86:rsp x86:rbp)
-  (for-each x86:pop (reverse callee-save-regs)))
+  (for-each x86:pop (reverse (callee-save-regs))))
 
 (define (alloca u)
   (x86:sub x86:rsp u)
