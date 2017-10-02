@@ -1,10 +1,9 @@
-#lang racket
-
-(require
-  (for-syntax racket/syntax))
+#lang racket/base
 
 (provide
  generic-asm^)
+
+(require racket/unit)
 
 (define-signature generic-asm^
   (;; Callee-saved registers

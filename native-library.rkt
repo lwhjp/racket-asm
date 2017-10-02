@@ -3,8 +3,8 @@
 (require ffi/unsafe
          racket/class
          "ffi.rkt"
-         "link.rkt"
-         "object.rkt")
+         "private/link.rkt"
+         "private/object.rkt")
 
 (define native-library%
   (class object%

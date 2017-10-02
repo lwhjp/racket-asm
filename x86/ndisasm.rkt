@@ -10,7 +10,7 @@
      (system* "/usr/bin/ndisasm" "-b64" "-")
      (get-output-string (current-output-port)))))
 
-(module+ test
+#;(module+ test
   (require rackunit)
   (define code
     (bytes #xB8 #x2A #x00 #x00 #x00 #xC3))

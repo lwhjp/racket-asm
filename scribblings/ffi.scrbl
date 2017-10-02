@@ -1,12 +1,12 @@
 #lang scribble/manual
 @(require (for-label racket/base
                      ffi/unsafe
-                     "../ffi.rkt"
-                     "../object.rkt"))
+                     asm/base
+                     asm/ffi))
 
 @title{FFI Utilities}
 
-@declare-exporting[asm/ffi]
+@defmodule[asm/ffi]
 
 @defproc[(alloc/exec [size exact-integer?]) bytes?]{
   Allocates @racket[size] bytes of executable memory.
@@ -17,7 +17,7 @@
   native procedure with type @racket[type].
 }
 
-@defproc[(object->proc [obj ao:object] [type ctype?]) procedure?]{
+@defproc[(object->proc [obj ao:object?] [type ctype?]) procedure?]{
   Converts the assembled object @racket[obj] to a native
   procedure with type @racket[type].
 }

@@ -1,10 +1,10 @@
-#lang racket
-
-(require
-  "assemble.rkt"
-  "ffi.rkt")
+#lang racket/base
 
 (provide
  (all-from-out
-  "assemble.rkt"
+  "base.rkt"
   "ffi.rkt"))
+
+(require
+  "base.rkt"
+  "ffi.rkt")

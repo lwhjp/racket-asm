@@ -6,9 +6,7 @@
 
 (require asm
          asm/generic
-         ffi/unsafe
-         "../ffi.rkt"
-         "../object.rkt")
+         ffi/unsafe)
 
 (provide ifib
          ifib-obj)

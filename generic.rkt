@@ -1,11 +1,10 @@
-#lang racket
+#lang racket/base
 
-(require
-  "generic/generic-asm-sig.rkt"
-  "generic/generic-x86-unit.rkt")
+(provide (all-defined-out))
 
-(provide
- (all-defined-out))
+(require racket/unit
+         "generic/generic-asm-sig.rkt"
+         "generic/generic-x86-unit.rkt")
 
 (define-values/invoke-unit generic-x86@
   (import)

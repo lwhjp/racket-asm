@@ -1,10 +1,10 @@
 #lang scribble/manual
 @(require (for-label racket/base
-                     "../object.rkt"))
+                     asm/base))
 
 @title{Assembled objects}
 
-@declare-exporting[asm/object]
+@defmodule[asm/base]
 
 @defstruct[ao:symbol
            ([name symbol?]

@@ -1,9 +1,9 @@
-#lang racket
+#lang racket/base
 
 (require
   ffi/unsafe
-  "assemble.rkt"
-  "object.rkt")
+  "private/assembler.rkt"
+  "private/object.rkt")
 
 (provide
  alloc/exec

@@ -2,12 +2,12 @@
 @(require (for-label racket/base
                      racket/class
                      ffi/unsafe
-                     "../native-library.rkt"
-                     "../object.rkt"))
+                     asm/base
+                     "../native-library.rkt"))
 
 @title{Native libraries}
 
-@declare-exporting[asm/native-library]
+@defmodule[asm/native-library]
 
 @defclass[native-library% object% ()]{
   Allows linking assembled objects.

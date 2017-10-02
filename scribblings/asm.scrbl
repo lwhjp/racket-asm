@@ -20,7 +20,7 @@ See the example directory for demos.
 
 @(table-of-contents)
 
-@include-section["assemble.scrbl"]
+@include-section["assembler.scrbl"]
 @include-section["object.scrbl"]
 @include-section["native-library.scrbl"]
 @include-section["ffi.scrbl"]

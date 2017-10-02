@@ -1,8 +1,9 @@
-#lang racket
+#lang racket/base
 
 (require
   ffi/unsafe
-  "../../assemble.rkt"
+  racket/port
+  "../../base.rkt"
   "../reference.rkt"
   "../register.rkt")
 
@@ -192,7 +193,7 @@
   (write-instruction bs)
   (when (symbol? immediate)
     (let ([size (/ immediate-size 8)])
-      (add-reference!
+      (add-relocation!
        immediate
        size
        (- size)

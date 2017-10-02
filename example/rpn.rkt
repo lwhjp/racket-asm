@@ -6,8 +6,7 @@
 
 (require asm
          asm/generic
-         ffi/unsafe
-         "../ffi.rkt")
+         ffi/unsafe)
 
 (provide compile-rpn)
 

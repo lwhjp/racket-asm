@@ -1,9 +1,11 @@
-#lang racket
+#lang racket/base
 
 (provide
  (except-out
   (all-defined-out)
   define-register))
+
+(require (for-syntax racket/base))
 
 (struct register (name width code high-byte?) #:transparent)
 

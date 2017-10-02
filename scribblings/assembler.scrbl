@@ -1,11 +1,10 @@
 #lang scribble/manual
 @(require (for-label racket/base
-                     "../assemble.rkt"
-                     "../object.rkt"))
+                     asm/base))
 
 @title{Assembler}
 
-@declare-exporting[asm/assemble]
+@defmodule[asm/base]
 
 @defform[(assemble form-or-label ...)
          #:grammar
@@ -15,6 +14,6 @@
   Evaluates each @racket[form] similarly to a @racket[begin]
   block. @racket[global-id] and @racket[label-id] declare global
   and local symbols respectively.
-  Returns an @racket[ao:object] containing assembled machine code from
+  Returns an @racket[ao:object?] containing assembled machine code from
   any evaluated instructions.
 }

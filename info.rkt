@@ -3,3 +3,4 @@
 (define build-deps '("racket-doc" "rackunit-lib" "scribble-lib"))
 (define deps '("base" "data-lib"))
 (define scribblings '(("scribblings/asm.scrbl" (multi-page))))
+(define compile-omit-paths '("example/"))

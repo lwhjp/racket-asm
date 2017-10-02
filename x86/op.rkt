@@ -1,19 +1,18 @@
-#lang racket
+#lang racket/base
 
-(require
-  "../object.rkt"
-  "private/define-instruction.rkt"
-  "private/instruction.rkt"
-  "reference.rkt"
-  "register.rkt")
+(provide (all-defined-out))
 
-(provide
- (all-defined-out))
+(require racket/match
+         "private/define-instruction.rkt"
+         "private/instruction.rkt"
+         "reference.rkt"
+         "register.rkt")
 
 (module+ test
   (require
     rackunit
-    "../assemble.rkt")
+    "../private/assembler.rkt"
+    "../private/object.rkt")
   (define-check (check-generated-asm name actual expected)
     (let ([gen (ao:object-text actual)])
       (with-check-info*
