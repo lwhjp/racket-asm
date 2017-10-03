@@ -78,7 +78,7 @@
     (pattern (~seq #:datum ~! label:id value:expr)
              #:attr expr #'(begin
                              (add-symbol! label #:binding 'local)
-                             (datum value)))
+                             (write-datum value)))
     (pattern (~seq #:global ~! label:id)
              #:attr expr #'(add-symbol! label #:binding 'global))
     (pattern (~seq #:label ~! label:id)

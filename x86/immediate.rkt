@@ -3,7 +3,11 @@
 (provide (all-defined-out))
 
 (define (immediate? v)
-  (exact-integer? v))
+  (or
+   (exact-integer? v)
+   (symbol? v)))
 
 (define (immediate-width v)
-  (integer-length v))
+  (if (exact-integer? v)
+      (integer-length v)
+      64)) ; FIXME
