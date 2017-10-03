@@ -1,17 +1,29 @@
 #lang racket/base
 
-(provide (all-defined-out))
+(provide
+ assembler?
+ current-assembler
+ make-assembler
+ assembler-position
+ write-datum
+ write-instruction
+ add-relocation!
+ add-symbol!
+ assemble)
 
-(require
-  (for-syntax racket/base
-              syntax/parse)
-  data/gvector
-  racket/contract/base
-  "link.rkt"
-  "object.rkt")
+(require (for-syntax racket/base
+                     syntax/parse)
+         binutils/base
+         data/gvector
+         racket/contract/base
+         "link.rkt")
 
 (struct assembler
-  (out
+  (sections
+   [current-section #:mutable]))
+
+(struct section
+  (output
    symbols
    relocations))
 
@@ -19,9 +31,18 @@
 
 (define (make-assembler)
   (assembler
+   (make-hasheq)
+   #f))
+
+(define (make-section)
+  (section
    (open-output-bytes)
    (make-hasheq)
    (make-gvector)))
+
+(define (assembler-out [asm (current-assembler)])
+  (ensure-assembler! 'assembler-out asm)
+  (section-output (assembler-current-section asm)))
 
 (define (assembler-position [asm (current-assembler)])
   (ensure-assembler! 'assembler-position asm)
@@ -41,30 +62,44 @@
 (define (add-relocation! symbol size offset addend type [asm (current-assembler)])
   (ensure-assembler! 'add-relocation! asm)
   (gvector-add!
-   (assembler-relocations asm)
-   (ao:reference
-    symbol
+   (section-relocations (assembler-current-section asm))
+   (bin:relocation
     (+ (assembler-position asm) offset)
     size
-    addend
-    type)))
+    symbol
+    type
+    addend)))
 
 (define (add-symbol! name
                      [value (assembler-position)]
                      [asm (current-assembler)]
                      #:binding [binding 'global])
   (ensure-assembler! 'add-symbol! asm)
-  (define symbols (assembler-symbols asm))
+  (define symbols (section-symbols (assembler-current-section asm)))
   (when (hash-has-key? symbols name)
     (error 'add-symbol! "symbol already defined: ~a" name))
-  (hash-set! symbols name (ao:symbol name value binding)))
+  (hash-set! symbols name (bin:symbol name value #f binding #f)))
+
+(define (set-section! name [asm (current-assembler)])
+  (ensure-assembler! 'set-section! asm)
+  (set-assembler-current-section!
+   asm
+   (hash-ref! (assembler-sections asm) name make-section)))
 
 (define (get-assembled-object [asm (current-assembler)])
   (link-object/local/relative
-   (ao:object
-    (list->vector (hash-values (assembler-symbols asm)))
-    (gvector->vector (assembler-relocations asm))
-    (get-output-bytes (assembler-out asm)))))
+   (bin:object
+    (hash-map
+     (assembler-sections asm)
+     (λ (name section)
+       (bin:section
+        (string->bytes/latin-1 (symbol->string name))
+        #f ; TODO: size
+        #f ; TODO: writable
+        #f ; TODO: executable
+        (get-output-bytes (section-output section))
+        (hash-values (section-symbols section))
+        (gvector->list (section-relocations section))))))))
 
 (define (ensure-assembler! id asm)
   (cond
@@ -83,6 +118,9 @@
              #:attr expr #'(add-symbol! label #:binding 'global))
     (pattern (~seq #:label ~! label:id)
              #:attr expr #'(add-symbol! label #:binding 'local))
+    (pattern (~seq #:section ~! section:id)
+             #:attr label #f
+             #:attr expr #'(set-section! 'section))
     (pattern expr:expr
              #:attr label #f))
   (syntax-parse stx
@@ -98,5 +136,6 @@
     [(_ body ...)
      #'(let ([asm (make-assembler)])
          (parameterize ([current-assembler asm])
+           (set-section! '|.text|)
            body ...)
          (get-assembled-object asm))]))

@@ -2,7 +2,8 @@
 @(require (for-label racket/base
                      ffi/unsafe
                      asm/base
-                     asm/ffi))
+                     asm/ffi
+                     binutils/base))
 
 @title{FFI Utilities}
 
@@ -17,7 +18,7 @@
   native procedure with type @racket[type].
 }
 
-@defproc[(object->proc [obj ao:object?] [type ctype?]) procedure?]{
+@defproc[(object->proc [obj bin:object?] [type ctype?]) procedure?]{
   Converts the assembled object @racket[obj] to a native
   procedure with type @racket[type].
 }

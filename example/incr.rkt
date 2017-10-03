@@ -21,7 +21,3 @@
 
 (define incr
   (object->proc incr-obj (_fun _int -> _int)))
-
-(module+ main
-  (require asm/x86/ndisasm)
-  (display (ndisasm (ao:object-text incr-obj))))

@@ -3,6 +3,7 @@
                      racket/class
                      ffi/unsafe
                      asm/base
+                     binutils/base
                      "../native-library.rkt"))
 
 @title{Native libraries}
@@ -17,7 +18,7 @@
     for easy construction.
   }
   @defmethod[(load
-              [objects (listof ao:object?)]
+              [objects (listof bin:object?)]
               [offset exact-integer? 0])
              void?]{
     Load the @racket[objects] into executable
@@ -41,7 +42,7 @@
 }
 
 @defproc[(make-native-library
-          [objects (listof ao:object?)])
+          [objects (listof bin:object?)])
          (is-a?/c native-library%)]{
   Create a @racket[native-library%] with the
   specified @racket[objects] pre-loaded.

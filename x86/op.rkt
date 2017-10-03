@@ -9,12 +9,11 @@
          "register.rkt")
 
 (module+ test
-  (require
-    rackunit
-    "../private/assembler.rkt"
-    "../private/object.rkt")
+  (require rackunit
+           binutils/base
+           "../private/assembler.rkt")
   (define-check (check-generated-asm name actual expected)
-    (let ([gen (ao:object-text actual)])
+    (let ([gen (bin:section-data (car (bin:object-sections actual)))])
       (with-check-info*
        (list
         (make-check-actual gen)

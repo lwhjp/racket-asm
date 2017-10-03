@@ -34,7 +34,3 @@
 
 (define ifib
   (object->proc ifib-obj (_fun _int -> _int)))
-
-(module+ main
-  (require asm/x86/ndisasm)
-  (display (ndisasm (ao:object-text ifib-obj))))

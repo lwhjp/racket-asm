@@ -39,7 +39,3 @@
 
 (define rfib
   (object->proc rfib-obj (_fun _int -> _int)))
-
-(module+ main
-  (require asm/x86/ndisasm)
-  (display (ndisasm (ao:object-text rfib-obj))))

@@ -1,15 +1,14 @@
 #lang racket/base
 
-(require
-  ffi/unsafe
-  "private/assembler.rkt"
-  "private/object.rkt")
-
 (provide
  alloc/exec
  bytes->proc
  object->proc
  define/asm)
+
+(require binutils/base
+         ffi/unsafe
+         "private/assembler.rkt")
 
 (define alloc/exec
   (get-ffi-obj
@@ -23,9 +22,12 @@
     (function-ptr code type)))
 
 (define (object->proc obj type)
-  (unless (zero? (vector-length (ao:object-references obj)))
-    (error 'object->proc "object has unresolved references"))
-  (bytes->proc (ao:object-text obj) type))
+  (unless (eqv? 1 (length (bin:object-sections obj)))
+    (error 'object->proc "unsupported: multi-section objects"))
+  (define sec (car (bin:object-sections obj)))
+  (unless (null? (bin:section-relocations sec))
+    (error 'object->proc "object has unresolved relocations"))
+  (bytes->proc (bin:section-data sec) type))
 
 (define-syntax-rule
   (define/asm (id fun-spec ...)
