@@ -92,11 +92,12 @@
     (hash-map
      (assembler-sections asm)
      (λ (name section)
+       (define executable? (eq? '|.text| name))
        (bin:section
         (string->bytes/latin-1 (symbol->string name))
-        #f ; TODO: size
-        #f ; TODO: writable
-        #f ; TODO: executable
+        #f ; Let someone else figure it out
+        (not executable?)
+        executable?
         (get-output-bytes (section-output section))
         (hash-values (section-symbols section))
         (gvector->list (section-relocations section))))))))
