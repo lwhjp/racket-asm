@@ -21,7 +21,6 @@ See the example directory for demos.
 @(table-of-contents)
 
 @include-section["assembler.scrbl"]
-@include-section["native-library.scrbl"]
 @include-section["ffi.scrbl"]
 @include-section["generic.scrbl"]
 @include-section["x86.scrbl"]

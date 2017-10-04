@@ -14,9 +14,9 @@
 (require (for-syntax racket/base
                      syntax/parse)
          binutils/base
+         binutils/link
          data/gvector
-         racket/contract/base
-         "link.rkt")
+         racket/contract/base)
 
 (struct assembler
   (sections
