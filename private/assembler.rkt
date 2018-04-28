@@ -104,8 +104,8 @@
 
 (define (ensure-assembler! id asm)
   (cond
-    [(not asm) (error 'id "not currently assembling")]
-    [(not (assembler? asm)) (raise-argument-error 'id "assembler?" asm)]
+    [(not asm) (error id "not currently assembling")]
+    [(not (assembler? asm)) (raise-argument-error id "assembler?" asm)]
     [else (void)]))
 
 (define-syntax (assemble stx)

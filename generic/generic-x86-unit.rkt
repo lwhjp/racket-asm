@@ -84,6 +84,11 @@
 ;;XXX
 (define TODO (λ a (error 'TODO)))
 
+(define (adjust-width-for-push v)
+  (cond
+    [(number? v) (x86:dword v)]
+    [else v]))
+
 (define-values (add addx addc sub subx subc)
   (apply
    values
@@ -94,8 +99,8 @@
           (x86:push x86:rax))
         (unless (eq? x86:rdx u)
           (x86:push x86:rdx))
-        (x86:push v)
-        (x86:push w)
+        (x86:push (adjust-width-for-push v))
+        (x86:push (adjust-width-for-push w))
         (x86:pop x86:rdx)
         (x86:pop x86:rax)
         (op x86:rax x86:rdx)
@@ -133,23 +138,23 @@
         (unless (eq? x86:rax u)
           (x86:pop x86:rax))))
     (list (λ (v w)
-            (x86:push v)
-            (x86:push w)
+            (x86:push (adjust-width-for-push v))
+            (x86:push (adjust-width-for-push w))
             (x86:pop x86:rbx)
             (x86:pop x86:rax)
             (x86:mul x86:rbx)
             x86:rax)
           (λ (v w)
-            (x86:push v)
-            (x86:push w)
+            (x86:push (adjust-width-for-push v))
+            (x86:push (adjust-width-for-push w))
             (x86:pop x86:rbx)
             (x86:pop x86:rax)
             (x86:mov x86:rdx 0)
             (x86:div x86:rbx)
             x86:rax)
           (λ (v w)
-            (x86:push v)
-            (x86:push w)
+            (x86:push (adjust-width-for-push v))
+            (x86:push (adjust-width-for-push w))
             (x86:pop x86:rbx)
             (x86:pop x86:rax)
             (x86:mov x86:rdx 0)
@@ -221,16 +226,16 @@
   (TODO))
 
 (define (ld u v)
-  (x86:mov u (x86:ptr v)))
+  (x86:mov u (x86:qword ptr v)))
 
 (define (ldx u v w)
-  (x86:mov u (x86:ptr+ v w)))
+  (x86:mov u (x86:qword ptr v + w)))
 
 (define (st u v)
-  (x86:mov (x86:ptr u) v))
+  (x86:mov (x86:qword ptr u) v))
 
 (define (stx u v w)
-  (x86:mov (x86:ptr+ u v) w))
+  (x86:mov (x86:qword ptr u + v) w))
 
 (define-values (blt ble bgt bge beq bne bunlt bunle bungt bunge)
   (apply
@@ -267,7 +272,7 @@
 (define (call u)
   (cond
     [(cpointer? u)
-     (x86:mov x86:rax u)
+     (x86:mov x86:rax (cast u _pointer _uint64))
      (x86:call x86:rax)]
     [else (x86:call u)])
   (for-each x86:pop (reverse (caller-save-regs))))
