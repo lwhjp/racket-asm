@@ -2,7 +2,8 @@
 
 (require (for-syntax racket/base
                      syntax/parse)
-         racket/contract)
+         racket/contract
+         racklog)
 
 (provide (all-defined-out))
 
@@ -23,7 +24,7 @@
   #:transparent)
 
 (struct segment-register register
-  ()
+  (code) ; (integer-in 0 5)
   #:transparent)
 
 ;;
@@ -51,7 +52,7 @@
          (bytes (immediate:constant-value imm))
          (integer->integer-bytes (immediate:constant-value imm)
                                  size
-                                 #t
+                                 (negative? (immediate:constant-value imm))
                                  #f))]
     [(immediate:relocation? imm)
      (make-bytes size)]))
@@ -73,7 +74,7 @@
 ; TODO: segment (far pointers)
 
 (struct pointer
-  (operand-size) ; (or/c #f 8 16 32 48 64 128)
+  (operand-size) ; (or/c 8 16 32 48 64 128)
   #:transparent)
 
 (struct pointer:absolute pointer
@@ -84,17 +85,18 @@
   (base    ; general-register?
    index   ; (or/c #f general-register?)
    scale   ; (or/c 1 2 4 8)
-   offset) ; #f / disp8 / disp32
+   offset) ; #f / immediate?
   #:transparent)
 
+; TODO: support creation of rIP-relative pointers
 (struct pointer:ip-relative pointer
   (offset) ; immediate?
   #:transparent)
 
 (define (make-simple-pointer size v)
   (cond
-    [(register? v) (pointer:sib size v #f 1 #f)]
-    [(exact-integer? v) (pointer:absolute size (make-immediate 32 v))]
+    [(general-register? v) (pointer:sib size v #f 1 #f)]
+    [(exact-integer? v) (pointer:absolute size (immediate:constant (_) v))]
     [else (error "invalid pointer:" v)]))
 
 (define/contract (make-sib-pointer size scale index base offset)
@@ -105,14 +107,18 @@
       (or/c exact-integer? #f)
       pointer:sib?)
   (define offset-immed
-    (and offset
-         (immediate:constant (if (> 8 (integer-length offset)) 8 32) offset)))
+    (and offset (immediate:constant (_) offset)))
   (pointer:sib size base index scale offset-immed))
 
 (define (make-sib-pointer/2 size foo bar)
-  (if (register? bar)
-      (make-sib-pointer size 1 foo bar #f)
-      (make-sib-pointer size 1 #f foo bar)))
+  (cond
+    [(and (general-register? foo) (general-register? bar))
+     (make-sib-pointer size 1 foo bar #f)]
+    [(and (general-register? foo) (exact-integer? bar))
+     (make-sib-pointer size 1 #f foo bar)]
+    [(and (general-register? bar) (exact-integer? foo))
+     (make-sib-pointer size 1 #f bar foo)]
+    [else (error "invalid pointer expression")]))
 
 ;;
 ;; Operand helpers
@@ -133,7 +139,7 @@
 
 (define-syntax (ptr stx)
   (syntax-case stx ()
-    [(_ . args) (ptr/size #f stx)]))
+    [(_ . args) (ptr/size #'(_) stx)]))
 
 (define-for-syntax (make-sized-operand size)
   (syntax-parser

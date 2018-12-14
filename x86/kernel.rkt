@@ -1,8 +1,10 @@
 #lang racket/base
 
-(require "private/operand.rkt")
+(require "private/mode.rkt"
+         "private/operand.rkt")
 
 (provide
+ current-assembler-bits
  register?
  register-name
  register-width
