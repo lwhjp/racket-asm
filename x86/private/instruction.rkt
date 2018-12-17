@@ -28,6 +28,8 @@
 
 (struct sib (scale index base) #:transparent)
 
+; NOTE: order of clauses is important due to cut on encode
+
 ;;
 ;; General instruction properties
 ;;
@@ -172,7 +174,11 @@
   (%rel (os as base index scale disp)
     [((pointer:sib os base index scale disp) os as)
      (%or (%= base #f) (%register-size base as))
-     (%or (%= index #f) (%register-size index as))]))
+     (%or (%= index #f) (%register-size index as))
+     (%or (%= disp #f)
+          (%let (ds)
+            (%and (%immediate-size disp ds)
+                  (%member ds '(8 32)))))]))
 
 (define %size/z
   (%rel ()

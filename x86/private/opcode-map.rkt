@@ -332,12 +332,11 @@
       [(mode (cons name args) ins operand-size)
        (%let (arity oso aso seg lock rep _rex opcode _modrm _sib ap ip as)
          (%and
-           (%length args arity)
-           (op-map opcode name arity mode ap ip)
-           (ap args mode operand-size as)
            (%= ins (instruction mode oso aso seg lock rep _rex opcode _modrm _sib (_) (_)))
            (%or (%= mode 64) (%and (%legacy-mode mode) (%= _rex #f)))
-           (ip ins args mode operand-size as)
+           (op-map opcode name arity mode ap ip)
+           (ap args mode operand-size as)
+           (%cut-delimiter (%and (ip ins args mode operand-size as) !))
            ; Don't bother encoding unnecessary prefixes
            (%andmap %unbound->false! (list oso aso seg lock rep _rex))
            ; Tidy up REX, ModRM and SIB
