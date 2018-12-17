@@ -89,14 +89,16 @@
    (with-syntax ([opcode (syntax-parameter-value #'current-opcode)]
                  [((oso rep) ...) prefix-flags]
                  [(sub-map ...) (generate-temporaries (attribute entry))])
-     #'(let ([sub-map entry] ...)
+     #'(let ([sub-map entry] ...
+             [make-ip (λ (sub-ip _oso _rep)
+                        (λ (ins args mode os as)
+                          (%and
+                           (%= ins (instruction (_) _oso (_) (_) (_) _rep (_) (_) (_) (_) (_) (_)))
+                           (sub-ip ins args mode os as))))])
          (%assert! current-opcode-map (opcode-tail mnemonic arity mode ap ip sub-ip)
            [((cons opcode opcode-tail) mnemonic arity mode ap ip)
             (sub-map opcode-tail mnemonic arity mode ap sub-ip)
-            (%is ip (λ (ins args mode os as)
-                      (%and
-                        (%= ins (instruction (_) oso (_) (_) (_) rep (_) (_) (_) (_) (_) (_)))
-                        (sub-ip ins args mode os as))))]
+            (%is ip (make-ip sub-ip oso rep))]
            ...)))])
 
 (define-syntax-parser stx:modrm-reg-map
