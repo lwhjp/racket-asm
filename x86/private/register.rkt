@@ -48,7 +48,7 @@
     [((general-register n w c) 64)]
     [(r 32) (%= r (general-register n w c))
             (%member w '(8 16 32))
-            (%register-with-rex (general-register n w c) #f)]
+            (%register-with-rex r #f)]
     [(r 16) (%register-mode r 32)]))
 
 (define %register-with-rex

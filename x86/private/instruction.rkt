@@ -130,10 +130,10 @@
     [(width code (general-register n width code))]))
 
 (define %register-addend/64
-  (%rel (mode width code/8 reg)
-    [(mode width code/8 reg) (%= reg (general-register (_) width code/8))]
-    [(64 width code/8 reg)   (%= reg (general-register (_) width (_)))
-                             (%extend/rex reg code/8 (_) %rex-b)]))
+  (%rel (mode width code/8 code)
+    [(mode width code/8 (general-register (_) width code/8))]
+    [(64 width code/8 (general-register (_) width code))
+     (%is code (bitwise-ior code/8 #b1000))]))
 
 (define %general-register/code
   (%rel (width code n)
