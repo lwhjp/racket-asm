@@ -9,8 +9,7 @@
          racklog
          syntax/parse/define
          "instruction.rkt"
-         "operand.rkt"
-         "racklog-lib.rkt")
+         "operand.rkt")
 
 (provide
  (filtered-out
@@ -72,9 +71,9 @@
 (define-syntax-parser stx:escape-to
   [(_ sub-map:id)
    (with-syntax ([opcode (syntax-parameter-value #'current-opcode)])
-     #'(%assert! current-opcode-map (opcode-tail mnemonic arity mode args-predicate instruction-predicate)
-         [((cons opcode opcode-tail) mnemonic arity mode args-predicate instruction-predicate)
-          (sub-map opcode-tail mnemonic arity mode args-predicate instruction-predicate)]))])
+     #'(%assert! current-opcode-map (opcode-tail mnemonic arity mode instruction-predicate)
+         [((cons opcode opcode-tail) mnemonic arity mode instruction-predicate)
+          (sub-map opcode-tail mnemonic arity mode instruction-predicate)]))])
 
 (define-syntax-parser stx:legacy-prefix-map
   [(_ [prefix entry:expr] ...)
@@ -91,13 +90,13 @@
                  [(sub-map ...) (generate-temporaries (attribute entry))])
      #'(let ([sub-map entry] ...
              [make-ip (λ (sub-ip _oso _rep)
-                        (λ (ins args mode os as)
+                        (λ (ins args mode)
                           (%and
                            (%= ins (instruction (_) _oso (_) (_) (_) _rep (_) (_) (_) (_) (_) (_)))
-                           (sub-ip ins args mode os as))))])
-         (%assert! current-opcode-map (opcode-tail mnemonic arity mode ap ip sub-ip)
-           [((cons opcode opcode-tail) mnemonic arity mode ap ip)
-            (sub-map opcode-tail mnemonic arity mode ap sub-ip)
+                           (sub-ip ins args mode))))])
+         (%assert! current-opcode-map (opcode-tail mnemonic arity mode ip sub-ip)
+           [((cons opcode opcode-tail) mnemonic arity mode ip)
+            (sub-map opcode-tail mnemonic arity mode sub-ip)
             (%is ip (make-ip sub-ip oso rep))]
            ...)))])
 
@@ -150,22 +149,19 @@
                  [(arg ...) arg-ids]
                  [(arg-goal ...) (filter values (list* arg-os-goal arg-as-goal arg-goals))]
                  [(ins-goal ...) (filter values (list* modrm-reg-goal ins-os-goal ins-as-goal ins-goals))])
-     #'(let ([args-predicate
-              (%rel (arg ... mode operand-size address-size)
-                [((list arg ...) mode operand-size address-size)
-                 arg-goal ...])]
-             [instruction-predicate
+     #'(let ([instruction-predicate
               (%rel (mode operand-size-override? address-size-override? _segment
                      _lock _repeat _rex _opcode _modrm _sib _disp _immed
                      arg ... operand-size address-size)
                 [((instruction mode operand-size-override? address-size-override?
                                _segment _lock _repeat _rex _opcode _modrm _sib _disp _immed)
-                  (list arg ...) mode operand-size address-size)
+                  (list arg ...) mode)
+                 arg-goal ...
                  ins-goal ...
                  ; HACK: this is easier than passing around lists of touched fields
                  (%andmap %unbound->false! (list _modrm _sib _disp _immed))])])
          (%assert! current-opcode-map (mode)
-           [('(opcode) 'mnemonic arity mode args-predicate instruction-predicate) mode-goal])))])
+           [('(opcode) 'mnemonic arity mode instruction-predicate) mode-goal])))])
 
 (define-syntax-parser stx:instruction*
   [(_ mnemonic:id [(arg ...) ...+] opt ...)
@@ -324,40 +320,12 @@
    ; TODO: it would be nice to provide the arity map via syntax
    #'(define-values (id arity-map)
        (values
-        (operand-map->relation op-map)
+        op-map
         (operand-map->arity-map op-map)))])
-
-(define (operand-map->relation op-map)
-  (define %instruction
-    (%rel (mode name args ins operand-size)
-      [(mode (cons name args) ins) (%instruction (cons name args) ins (_))]
-      [(mode (cons name args) ins operand-size)
-       (%let (arity oso aso seg lock rep _rex opcode _modrm _sib ap ip as)
-         (%and
-           (%= ins (instruction mode oso aso seg lock rep _rex opcode _modrm _sib (_) (_)))
-           (%or (%= mode 64) (%and (%legacy-mode mode) (%= _rex #f)))
-           (op-map opcode name arity mode ap ip)
-           (ap args mode operand-size as)
-           (%cut-delimiter (%and (ip ins args mode operand-size as) !))
-           ; Don't bother encoding unnecessary prefixes
-           (%andmap %unbound->false! (list oso aso seg lock rep _rex))
-           ; Tidy up REX, ModRM and SIB
-           (%or (%= _rex #f)
-                (%let (w r x b) (%and (%= _rex (rex w r x b))
-                                      (%andmap %unbound->false! (list w r x b)))))
-           (%or (%= _modrm #f)
-                (%let (mod reg r/m) (%and (%= _modrm (modrm mod reg r/m))
-                                          (%andmap %unbound->zero! (list mod reg r/m)))))
-           (%or (%= _sib #f)
-                (%let (scale index base) (%and (%= _sib (sib scale index base))
-                                               (%andmap %unbound->zero! (list scale index base)))))
-           ; Final check (particularly for missized immediates)
-           (%valid-instruction ins)))]))
-  %instruction)
 
 ; HACK: thunkify so that we don't compute this every time the module is instantiated
 (define ((operand-map->arity-map op-map))
-  (match (%find-all (id arity) (op-map (_) id arity (_) (_) (_)))
+  (match (%find-all (id arity) (op-map (_) id arity (_) (_)))
     [(list `((id . ,ids) (arity . ,aritys)) ...)
      (define arity-sets
        (for/fold ([hsh (hasheq)])

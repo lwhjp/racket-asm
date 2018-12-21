@@ -5,7 +5,7 @@
 
 (provide (all-defined-out))
 
-(define-instruction-encoders %instruction instruction-arity-map)
+(define-instruction-encoders %instruction-spec instruction-arity-map)
 
 (define jc jb)
 (define jnae jb)

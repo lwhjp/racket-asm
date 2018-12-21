@@ -54,20 +54,23 @@
 (define %valid-instruction
   (%rel (mode oso aso seg lock repeat _rex opcode _modrm _sib _disp _immed)
     [((instruction mode oso aso seg lock repeat _rex opcode _modrm _sib _disp _immed))
-     (%member mode '(16 32 64))
-     (%boolean oso)
-     (%boolean aso)
-     (%member seg '(#f cs ds es fs gs ss))
-     (%boolean lock)
-     (%member repeat '(#f #xF3 #xF2))
-     (%or (%= mode 64) (%and (%legacy-mode mode) (%= _rex #f)))
-     (%or (%= _rex #f) (%valid-rex _rex))
-     (%valid-opcode opcode)
+     #|
+     ; These are enforced elsewhere, so only enable them when debugging to save time
+     (%member mode '(16 32 64)) !
+     (%boolean oso) !
+     (%boolean aso) !
+     (%member seg '(#f cs ds es fs gs ss)) !
+     (%boolean lock) !
+     (%member repeat '(#f #xF3 #xF2)) !
+     (%or (%= mode 64) (%= _rex #f)) !
+     (%or (%= _rex #f) (%valid-rex _rex)) !
+     (%valid-opcode opcode) !
      (%or (%and (%= _modrm #f) (%= _sib #f))
           (%and (%valid-modrm _modrm)
-                (%or (%= _sib #f) (%valid-sib _sib))))
-     (%or (%= _disp #f) (%valid-immediate _disp))
-     (%or (%= _immed #f) (%valid-immediate _immed))
+                (%or (%= _sib #f) (%valid-sib _sib)))) !
+     |#
+     (%or (%= _disp #f) (%valid-immediate _disp)) !
+     (%or (%= _immed #f) (%valid-immediate _immed)) !
      ; TODO: check total disp+immed length
      ; TODO: check total instruction length
      ]))
@@ -88,21 +91,21 @@
 (define %valid-modrm
   (%rel (mod reg r/m)
     [((modrm mod reg r/m))
-     (%member mod '(#b00 #b01 #b10 #b11))
-     (%member reg '(0 1 2 3 4 5 6 7))
-     (%member r/m '(0 1 2 3 4 5 6 7))]))
+     (%member mod '(#b00 #b01 #b10 #b11)) !
+     (%member reg '(0 1 2 3 4 5 6 7)) !
+     (%member r/m '(0 1 2 3 4 5 6 7)) !]))
 
 (define %valid-sib
   (%rel (scale index base)
     [((sib scale index base))
-     (%member scale '(#b00 #b01 #b10 #b11))
-     (%member index '(0 1 2 3 4 5 6 7))
-     (%member base '(0 1 2 3 4 5 6 7))]))
+     (%member scale '(#b00 #b01 #b10 #b11)) !
+     (%member index '(0 1 2 3 4 5 6 7)) !
+     (%member base '(0 1 2 3 4 5 6 7)) !]))
 
 (define %valid-immediate
   (%rel (size value)
     [((immediate:constant size value))
-     (%member size '(8 16 32 64))
+     (%member size '(8 16 32 64)) !
      (%or (%and (%var value) !)
           (%and (%is #t (exact-integer? value))
                 (%or (%= 0 value)
@@ -160,11 +163,7 @@
 (define %ip-offset/size
   (%rel (os x disp)
     [((immediate:constant os (_)) os)]
-    [((immediate:relocation x (_) #t) os)
-     ; FIXME: we don't know how big the relocation needs to be when assembling,
-     ; so force it to 32 bits to avoid ambiguous operand size.
-     (%if-then-else (%var x) (%= x 32) %true)
-     (%= os x)]))
+    [((immediate:relocation os (_) #t) os)]))
 
 (define %absolute-ptr/size
   (%rel (os as disp)
@@ -225,12 +224,24 @@
 (define %extend/rex
   (%rel (reg _rex which code code/8 hi?)
     [(reg code/8 #f which)   (%register-with-rex reg #f)
-                             (%is code/8 (general-register-code reg))]
+                             (%= reg (general-register (_) (_) code/8))]
     [(reg code/8 _rex which) (%register-with-rex reg #t)
-                             (%is code (general-register-code reg))
-                             (%is code/8 (bitwise-and code #b111))
-                             (%is hi? (bitwise-bit-set? code 3))
-                             (which _rex hi?)]))
+                             (%= reg (general-register (_) (_) code))
+                             (which _rex hi?)
+                             (%split/8 code/8 hi? code)]))
+
+(define %split/8
+  (%rel (code/8 hi? code)
+    [(code/8 hi? code)
+     (%nonvar code)
+     (%is hi? (bitwise-bit-set? code 3))
+     (%is code/8 (bitwise-and code #b111))]
+    [(code #f code)
+     (%nonvar code)
+     (%is #f (bitwise-bit-set? code 3))]
+    [(code/8 #t code)
+     (%nonvar code/8)
+     (%is code (bitwise-ior #b1000 code/8))]))
 
 (define %rex+modrm/reg
   (%rel (_rex reg code/8)

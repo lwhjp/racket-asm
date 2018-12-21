@@ -2,7 +2,7 @@
 
 (require "opcode-map.rkt")
 
-(provide %instruction instruction-arity-map)
+(provide %instruction-spec instruction-arity-map)
 
 (define secondary-opcode-map
   (opcode-map
@@ -207,4 +207,4 @@
           (instruction (PUSH Ev) #:default-operand-size/64 64)
           #f)]))
 
-(define-instruction-set (%instruction instruction-arity-map) primary-opcode-map)
+(define-instruction-set (%instruction-spec instruction-arity-map) primary-opcode-map)
