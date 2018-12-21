@@ -76,11 +76,11 @@
 (define %maybe-modrm+sib
   (%rel (_modrm _sib tail m s)
     [(#f #f tail tail)]
-    [(_modrm #f tail(cons m tail))
+    [(_modrm #f tail (cons m tail))
      (%modrm-byte _modrm m)]
     [(_modrm _sib tail (list* m s tail))
      (%modrm-byte _modrm m)
-     (%sib-byte _sib m)]))
+     (%sib-byte _sib s)]))
 
 (define %modrm-byte
   (%rel (mod reg r/m b)
