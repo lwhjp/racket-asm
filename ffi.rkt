@@ -10,11 +10,12 @@
          ffi/unsafe
          "private/assembler.rkt")
 
+; FIXME: use binutils
 (define alloc/exec
-  (get-ffi-obj
-   'scheme_malloc_code
-   #f
-   (_fun (size : _long) -> (_bytes o size))))
+  (if (eq? 'racket (system-type 'vm))
+      (get-ffi-obj 'scheme_malloc_code #f (_fun (size : _long) -> (_bytes o size)))
+      ; TODO
+      (λ (_) (error "dynamic loading is not implemented on this version of Racket"))))
 
 (define (bytes->proc bs type)
   (let ([code (alloc/exec (bytes-length bs))])
