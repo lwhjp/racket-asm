@@ -10,6 +10,9 @@ This will create links so that `require` and friends work properly.
 
 See the `example` directory for how to create executable procedures.
 
+**NOTE** dynamic loading doesn't yet work on Racket CS (which is the
+default from version 8.0). This will be addressed at some point.
+
 Overview
 --------
 
