@@ -1,8 +1,8 @@
 #lang racket/base
 
-(require "opcode-map-stx.rkt")
+(require "opcode-map.rkt")
 
-(provide primary-opcode-map)
+(provide %instruction-spec instruction-arity-map)
 
 (define secondary-opcode-map
   (opcode-map
@@ -206,3 +206,5 @@
           (instruction (JMP Mv))
           (instruction (PUSH Ev) #:default-operand-size/64 64)
           #f)]))
+
+(define-instruction-set (%instruction-spec instruction-arity-map) primary-opcode-map)
