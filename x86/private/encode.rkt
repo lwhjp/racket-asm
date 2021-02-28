@@ -75,11 +75,28 @@
     (define results
       (%find-all (ins)
         (instruction-set (current-assembler-bits) (cons name args) ins)))
-    (define possible-encodings
+    (define instructions
       (match results
         ['(#f) (error name "illegal arguments")]
-        [(list `((ins . ,instructions)) ...)
-         (map encode-instruction instructions)]))
+        [(list `((ins . ,instructions)) ...) instructions]))
+    ; If this instruction includes a relocation, pick the ones with the
+    ; largest width in case of ambiguity.
+    ; TODO: allow for smaller relocations when safe (eg local jumps)
+    (define (relocation-width ins)
+      (match (instruction-immed ins)
+        [(immediate:relocation w _ _) w]
+        [_ #f]))
+    (define relocation-safe-instructions
+      (let ([relocation-widths (filter-map relocation-width instructions)])
+        (if (empty? relocation-widths)
+            instructions
+            (let ([max-width (apply max relocation-widths)])
+              (for/list ([ins instructions]
+                         [w relocation-widths]
+                         #:when (eqv? w max-width))
+                ins)))))
+    (define possible-encodings
+      (map encode-instruction relocation-safe-instructions))
     (let ([asm (current-assembler)]
           [enc (argmin encoded-length possible-encodings)])
       (write-instruction (encoded-instruction-bytes enc) asm)
@@ -102,9 +119,8 @@
                                              (%default-arg-size d 32))]
     [((pointer:ip-relative w d)) ! (%default-arg-size d)]
     [((immediate:relocation w (_) (_))) !
-     ; FIXME: we don't know how big the relocation needs to be when assembling,
-     ; so force it to 32 bits to avoid ambiguous operand size.
-     (%= w 32)]
+     ; FIXME: binutils only supports 32 and 64 bit relocations for now
+     (%member w '(32 64))]
     [((immediate:constant w (_))) ! (%member w '(8 16 32 64))]
     [((immediate:constant w (_)) w) !]
     [((_))]))
@@ -165,16 +181,16 @@
      (define disp-size (if disp (/ (immediate-width disp) 8) 0))
      (define immed-size (if immed (/ (immediate-width immed) 8) 0))
      (when (immediate:relocation? disp)
-       (let ([addend (- (+ disp-size immed-size))])
+       (let ([offset (- (+ disp-size immed-size))])
          (add-relocation! (immediate:relocation-symbol disp)
                           disp-size
-                          addend
-                          addend
-                          (if (immediate:relocation-relative? disp) 'relative 'value))))
+                          offset
+                          (if (immediate:relocation-relative? disp) offset 0)
+                          (if (immediate:relocation-relative? disp) 'offset 'value))))
      (when (immediate:relocation? immed)
-       (let ([addend (- immed-size)])
+       (let ([offset (- immed-size)])
          (add-relocation! (immediate:relocation-symbol immed)
                           immed-size
-                          addend
-                          addend
-                          (if (immediate:relocation-relative? immed) 'relative 'value)))))))
+                          offset
+                          (if (immediate:relocation-relative? immed) offset 0)
+                          (if (immediate:relocation-relative? immed) 'offset 'value)))))))

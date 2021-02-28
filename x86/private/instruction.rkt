@@ -160,6 +160,11 @@
     [(rm os as) (%or (%absolute-ptr/size rm os as)
                      (%sib-ptr/size rm os as))]))
 
+(define %immediate-value/size
+  (%rel (os)
+    [((immediate:constant os (_)) os)]
+    [((immediate:relocation os (_) #f) os)]))
+
 (define %ip-offset/size
   (%rel (os x disp)
     [((immediate:constant os (_)) os)]

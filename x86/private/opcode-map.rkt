@@ -285,7 +285,7 @@
              [(#\A) #'%fail] ; TODO
              [(#\E) #`(%reg/mem/size #,id size address-size)]
              [(#\G #\R) #`(%= #,id (general-register (_) size (_)))]
-             [(#\I) #`(%immediate-size #,id size)]
+             [(#\I) #`(%immediate-value/size #,id size)]
              [(#\J) #`(%ip-offset/size #,id size)]
              [(#\M) #`(%pointer/size #,id size address-size)]
              [(#\O) #`(%absolute-ptr/size #,id size address-size)]

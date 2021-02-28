@@ -55,6 +55,9 @@
                                  (negative? (immediate:constant-value imm))
                                  #f))]
     [(immediate:relocation? imm)
+     (unless (boolean? (immediate:relocation-relative? imm))
+       ; FIXME: we should really catch this earlier
+       (error "BUG: ambiguous relocation type"))
      (make-bytes size)]))
 
 (define/contract (make-immediate size v)
